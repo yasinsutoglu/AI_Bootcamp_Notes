@@ -1,6 +1,8 @@
 #############################
 # Content Based Recommendation (İçerik Temelli Tavsiye)
+# Ürün içeriklerinin(metadata) benzerlikleri üzerinden tavsiyeler geliştirilir.
 #############################
+# örn metadatalar => film açıklaması/yönetmen/oyuncu kadrosu, bir kitabın açıklaması/özeti, bir ürün açıklaması/kategori bilgisi
 
 #############################
 # Film Overview'larına Göre Tavsiye Geliştirme
@@ -22,23 +24,25 @@ pd.set_option('display.expand_frame_repr', False)
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 # https://www.kaggle.com/rounakbanik/the-movies-dataset
-df = pd.read_csv("datasets/the_movies_dataset/movies_metadata.csv", low_memory=False)  # DtypeWarning kapamak icin
+df = pd.read_csv("section_datasets/recommender/datasets/the_movies_dataset/movies_metadata.csv", low_memory=False)
+# DtypeWarning kapamak icin
 df.head()
 df.shape
 
 df["overview"].head()
 
-tfidf = TfidfVectorizer(stop_words="english")
+tfidf = TfidfVectorizer(stop_words="english") #the , on gibi ara kelimeleri analizimizi saptırmasın diye çıkararak tdidf yaptık
 
 # df[df['overview'].isnull()]
-df['overview'] = df['overview'].fillna('')
+df['overview'] = df['overview'].fillna('') # acıklaması boş olanları çıkardık
 
 tfidf_matrix = tfidf.fit_transform(df['overview'])
 
-tfidf_matrix.shape
+tfidf_matrix.shape #(45466, 75827) => ilki yorumlar, ikincisi unique kelimeler
 
 df['title'].shape
 
+tfidf.get_feature_names_out()
 tfidf.get_feature_names()
 
 tfidf_matrix.toarray()
