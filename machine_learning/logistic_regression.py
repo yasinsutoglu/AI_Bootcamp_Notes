@@ -26,6 +26,7 @@
 # Outcome: Kişinin diyabet olup olmadığı bilgisi. Hastalığa sahip (1) ya da değil (0)
 
 
+# STEPS:
 # 1. Exploratory Data Analysis
 # 2. Data Preprocessing
 # 3. Model & Prediction
@@ -41,7 +42,7 @@ import seaborn as sns
 
 from sklearn.preprocessing import RobustScaler
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, roc_auc_score, confusion_matrix, classification_report, plot_roc_curve
+from sklearn.metrics import accuracy_score, roc_auc_score, confusion_matrix, classification_report, RocCurveDisplay
 from sklearn.model_selection import train_test_split, cross_validate
 
 def outlier_thresholds(dataframe, col_name, q1=0.05, q3=0.95):
@@ -73,13 +74,18 @@ pd.set_option('display.width', 500)
 # Exploratory Data Analysis
 ######################################################
 
-df = pd.read_csv("datasets/diabetes.csv")
+df = pd.read_csv("section_datasets/machine_learning/diabetes.csv")
+df.head()
+df.shape
 
 ##########################
 # Target'ın Analizi
 ##########################
 
 df["Outcome"].value_counts()
+#Outcome
+#0    500
+#1    268
 
 sns.countplot(x="Outcome", data=df)
 plt.show()
@@ -89,7 +95,6 @@ plt.show()
 ##########################
 # Feature'ların Analizi
 ##########################
-
 df.head()
 
 df["BloodPressure"].hist(bins=20)
@@ -102,30 +107,31 @@ def plot_numerical_col(dataframe, numerical_col):
     plt.show(block=True)
 
 
-for col in df.columns:
-    plot_numerical_col(df, col)
+#for col in df.columns:
+#    plot_numerical_col(df, col)
 
 cols = [col for col in df.columns if "Outcome" not in col]
 
 
-# for col in cols:
-#     plot_numerical_col(df, col)
+for col in cols:
+    plot_numerical_col(df, col)
 
 df.describe().T
 
 ##########################
 # Target vs Features
 ##########################
-
+# Örnek:
 df.groupby("Outcome").agg({"Pregnancies": "mean"})
 
+#Genelleme Fonk.:
 def target_summary_with_num(dataframe, target, numerical_col):
     print(dataframe.groupby(target).agg({numerical_col: "mean"}), end="\n\n\n")
 
 for col in cols:
     target_summary_with_num(df, "Outcome", col)
 
-
+# Bu kısımdaki sonuclara göre model belirleme fikri olusur.
 
 ######################################################
 # Data Preprocessing (Veri Ön İşleme)
@@ -145,51 +151,31 @@ replace_with_thresholds(df, "Insulin")
 for col in cols:
     df[col] = RobustScaler().fit_transform(df[[col]])
 
+# RobustScaler => aykırı değerlere dayanıklıdır.
+# Herbir gözlem biriminden ortalama değil median'ı cıkarıp range değerine bölüyordu.
+
 df.head()
-
-
 ######################################################
 # Model & Prediction
 ######################################################
-
 y = df["Outcome"]
-
 X = df.drop(["Outcome"], axis=1)
 
 log_model = LogisticRegression().fit(X, y)
 
-log_model.intercept_
+log_model.intercept_ #array([-1.23439588]) => modelin sabitiydi hatırla!
 log_model.coef_
+# array([[ 0.59906785,  1.41770936, -0.23152362,  0.01973855, -0.14571255,
+#          0.81741997,  0.35522795,  0.25655154]])
 
 y_pred = log_model.predict(X)
 
 y_pred[0:10]
-
 y[0:10]
-
-
-######################################################
-# Model & Prediction
-######################################################
-
-y = df["Outcome"]
-
-X = df.drop(["Outcome"], axis=1)
-
-log_model = LogisticRegression().fit(X, y)
-log_model.intercept_
-log_model.coef_
-
-y_pred = log_model.predict(X)
-y_pred[0:10]
-
-y[0:10]
-
 
 ######################################################
 # Model Evaluation
 ######################################################
-
 def plot_confusion_matrix(y, y_pred):
     acc = round(accuracy_score(y, y_pred), 2)
     cm = confusion_matrix(y, y_pred)
@@ -202,8 +188,14 @@ def plot_confusion_matrix(y, y_pred):
 plot_confusion_matrix(y, y_pred)
 
 print(classification_report(y, y_pred))
+#               precision    recall  f1-score   support
+#            0       0.80      0.89      0.84       500
+#            1       0.74      0.58      0.65       268
+#     accuracy                           0.78       768
+#    macro avg       0.77      0.74      0.75       768
+# weighted avg       0.78      0.78      0.78       768
 
-
+# RESULT:
 # Accuracy: 0.78
 # Precision: 0.74
 # Recall: 0.58
@@ -218,9 +210,7 @@ roc_auc_score(y, y_prob)
 # Model Validation: Holdout
 ######################################################
 
-X_train, X_test, y_train, y_test = train_test_split(X,
-                                                    y,
-                                                    test_size=0.20, random_state=17)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=17)
 
 log_model = LogisticRegression().fit(X_train, y_train)
 
@@ -228,42 +218,41 @@ y_pred = log_model.predict(X_test)
 y_prob = log_model.predict_proba(X_test)[:, 1]
 
 print(classification_report(y_test, y_pred))
-
-# Accuracy: 0.78
-# Precision: 0.74
-# Recall: 0.58
-# F1-score: 0.65
-
 # Accuracy: 0.77
 # Precision: 0.79
 # Recall: 0.53
 # F1-score: 0.63
 
-plot_roc_curve(log_model, X_test, y_test)
+# Eskisi Karşılaştırmak için;
+# Accuracy: 0.78
+# Precision: 0.74
+# Recall: 0.58
+# F1-score: 0.65
+
+RocCurveDisplay(log_model, X_test, y_test)
 plt.title('ROC Curve')
 plt.plot([0, 1], [0, 1], 'r--')
 plt.show()
 
 # AUC
 roc_auc_score(y_test, y_prob)
-
+#  0.8755652016639537
+# random_state=17 => farklı random_state'lerle farklı 80'e 20 örneklem değerleri alırız.
+# Bu da accuracy , precision vs değerlerine değişim olarak yansır. Yine güven vermez bize.
+# Bu nedenle 10 katlı çapraz doğrulama uygularız.
 
 ######################################################
 # Model Validation: 10-Fold Cross Validation
 ######################################################
-
 y = df["Outcome"]
 X = df.drop(["Outcome"], axis=1)
 
 log_model = LogisticRegression().fit(X, y)
 
-cv_results = cross_validate(log_model,
-                            X, y,
-                            cv=5,
+cv_results = cross_validate(log_model, X, y, cv=5,
                             scoring=["accuracy", "precision", "recall", "f1", "roc_auc"])
 
-
-
+# Eski verileri karşışatırmak için tekrar bakalım:
 # Accuracy: 0.78
 # Precision: 0.74
 # Recall: 0.58
@@ -273,7 +262,6 @@ cv_results = cross_validate(log_model,
 # Precision: 0.79
 # Recall: 0.53
 # F1-score: 0.63
-
 
 cv_results['test_accuracy'].mean()
 # Accuracy: 0.7721
@@ -295,9 +283,8 @@ cv_results['test_roc_auc'].mean()
 ######################################################
 
 X.columns
-
 random_user = X.sample(1, random_state=45)
-log_model.predict(random_user)
+log_model.predict(random_user) #array([1], dtype=int64) => bu kişi diyabettir diye tahmin sonucu cıktı.
 
 
 
