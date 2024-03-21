@@ -15,11 +15,10 @@
 # 11. Prediction using Python Codes
 # 12. Saving and Loading Model
 
-
-# pip install pydotplus
-# pip install skompiler
-# pip install astor
-# pip install joblib
+# !pip install pydotplus
+# !pip install skompiler
+# !pip install astor
+# !pip install joblib
 
 import warnings
 import joblib
@@ -32,7 +31,7 @@ from sklearn.tree import DecisionTreeClassifier, export_graphviz, export_text
 from sklearn.metrics import classification_report, roc_auc_score
 from sklearn.model_selection import train_test_split, GridSearchCV, cross_validate, validation_curve
 from skompiler import skompile
-import graphviz
+# import graphviz
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', 500)
@@ -51,7 +50,7 @@ warnings.simplefilter(action='ignore', category=Warning)
 # 3. Modeling using CART
 ################################################
 
-df = pd.read_csv("datasets/diabetes.csv")
+df = pd.read_csv("section_datasets/machine_learning/diabetes.csv")
 
 y = df["Outcome"]
 X = df.drop(["Outcome"], axis=1)
@@ -69,7 +68,7 @@ print(classification_report(y, y_pred))
 
 # AUC
 roc_auc_score(y, y_prob)
-
+# 1.0 => bu şekilde çıkması bir soru işareti oluşturmalıdır!!!
 #####################
 # Holdout Yöntemi ile Başarı Değerlendirme
 #####################
@@ -82,13 +81,17 @@ cart_model = DecisionTreeClassifier(random_state=17).fit(X_train, y_train)
 y_pred = cart_model.predict(X_train)
 y_prob = cart_model.predict_proba(X_train)[:, 1]
 print(classification_report(y_train, y_pred))
-roc_auc_score(y_train, y_prob)
+roc_auc_score(y_train, y_prob) # 1.0 çıktı yine
 
 # Test Hatası
 y_pred = cart_model.predict(X_test)
 y_prob = cart_model.predict_proba(X_test)[:, 1]
 print(classification_report(y_test, y_pred))
-roc_auc_score(y_test, y_prob)
+roc_auc_score(y_test, y_prob) # 0.6558441558441559 çıktı
+# Model göremediği veride kötü sonuç çıkardı halbuki train'de 1.0 idi. Bu overfittinge işaret eder.
+# Normalde train'in başarısı test'in başarısından daha yüksek olması çok normaldir ve beklenen bişeydir
+# ama burada fark çok o nedenle sorguladık.
+# Random state'leri değiştirdikçe teste ait roc&auc de değişti bu nedenle CrossValidation'a başvurmaya karar verdik.
 
 #####################
 # CV ile Başarı Değerlendirme
@@ -108,30 +111,38 @@ cv_results['test_f1'].mean()
 cv_results['test_roc_auc'].mean()
 # 0.6719440950384347
 
+# Buradaki sonuçlar doğrudur ama düşük çıkan model başarımızı nasıl arttırırız??
+# Yani gözlemler ekleyerek, yeni değişkenler ekleyere, veri ön işlemeye tekrar bakarak, hiperparametre optimizasyonu yaparak.
+# Dengesiz veri yaklaşımı da işe yarayabilir. => birbirine uzak olan değişken birimlerini birbirine yaklaştırmaya çalışmak
 
 ################################################
 # 4. Hyperparameter Optimization with GridSearchCV
 ################################################
-
-cart_model.get_params()
+cart_model.get_params() # modelin parametrelerini gösterir
 
 cart_params = {'max_depth': range(1, 11),
                "min_samples_split": range(2, 20)}
+# buradaki range değerleri için yukarıda get_params ile baktığımız ön tanımlı değerlerden yola çıkabiliriz.
 
 cart_best_grid = GridSearchCV(cart_model,
                               cart_params,
+                              #scoring = "roc_auc",
                               cv=5,
                               n_jobs=-1,
                               verbose=1).fit(X, y)
+# verbose raporlama türü => Fitting 5 folds for each of 180 candidates, totalling 900 fits
 
-cart_best_grid.best_params_
+cart_best_grid.best_params_ #{'max_depth': 5, 'min_samples_split': 4}
 
-cart_best_grid.best_score_
+cart_best_grid.best_score_ #0.7500806383159324 (GridSearchCV'de scoring değeri accuracy'dir default olarak)
 
 random = X.sample(1, random_state=45)
 
-cart_best_grid.predict(random)
+cart_best_grid.predict(random) # array([1])
 
+# Nihai olarak GridSearchCV() en iyi parametreleri bulmak için kullandığımız methoddur ama Final Modeli kurmalıyız.
+# Gerçek hayatta da kullanılan farklı toollar ile elde edilen en iyi parametrelerle de bir final modeli kurmak gerekir.
+# SOR!!
 
 ################################################
 # 5. Final Model
@@ -140,26 +151,27 @@ cart_best_grid.predict(random)
 cart_final = DecisionTreeClassifier(**cart_best_grid.best_params_, random_state=17).fit(X, y)
 cart_final.get_params()
 
-cart_final = cart_model.set_params(**cart_best_grid.best_params_).fit(X, y)
+#en iyi parametre set etmede alternatif yöntem!
+#cart_final = cart_model.set_params(**cart_best_grid.best_params_).fit(X, y)
 
 cv_results = cross_validate(cart_final,
                             X, y,
                             cv=5,
                             scoring=["accuracy", "f1", "roc_auc"])
 
-cv_results['test_accuracy'].mean()
-
-cv_results['test_f1'].mean()
-
-cv_results['test_roc_auc'].mean()
-
+cv_results['test_accuracy'].mean() #  0.7500806383159324
+cv_results['test_f1'].mean() #  0.614625004082526
+cv_results['test_roc_auc'].mean() # 0.797796645702306
 
 ################################################
 # 6. Feature Importance
 ################################################
+# Sınıflandırma problemlerinde değişkenlerin sağladığı katkılara göre önemlerinin sıralandırması işlemi yapılır
+# Sağladığı katkı??
+# Amaç; Düşük hatalarla tahmin yapmak => SSE küçültmek, Saflık ölçümlerini küçültmek , Gini , Entropi vb.
 
 cart_final.feature_importances_
-
+# Feature türetirken önemli değişkenleri odağımıza alırız.
 def plot_importance(model, features, num=len(X), save=False):
     feature_imp = pd.DataFrame({'Value': model.feature_importances_, 'Feature': features.columns})
     plt.figure(figsize=(10, 10))
@@ -172,20 +184,21 @@ def plot_importance(model, features, num=len(X), save=False):
     if save:
         plt.savefig('importances.png')
 
-
 plot_importance(cart_final, X, num=5)
 
 ################################################
 # 7. Analyzing Model Complexity with Learning Curves (BONUS)
 ################################################
-
+# Yukarıda en düşük hatayı alan modeli belirledik ama iyileştirme analizi yapabiliriz burada.
+# overfit'e düşme noktası train set ile test seti ayrışmaya başladığı nokta idi.
+# Önüne geçmek için model karmaşıklığı azaltılır demiştik.
 
 train_score, test_score = validation_curve(cart_final, X, y,
                                            param_name="max_depth",
                                            param_range=range(1, 11),
                                            scoring="roc_auc",
                                            cv=10)
-
+# 10 range değeri için 10 tane CV değeri array halinde sunuldu. Bunlardan score eldesi için ortalamasını aldık her arrayin.
 mean_train_score = np.mean(train_score, axis=1)
 mean_test_score = np.mean(test_score, axis=1)
 
@@ -203,9 +216,7 @@ plt.tight_layout()
 plt.legend(loc='best')
 plt.show()
 
-
-
-
+# Yukarıdakileri fonksiyonlaştıralım;
 def val_curve_params(model, X, y, param_name, param_range, scoring="roc_auc", cv=10):
     train_score, test_score = validation_curve(
         model, X=X, y=y, param_name=param_name, param_range=param_range, scoring=scoring, cv=cv)
@@ -226,15 +237,14 @@ def val_curve_params(model, X, y, param_name, param_range, scoring="roc_auc", cv
     plt.legend(loc='best')
     plt.show(block=True)
 
-
 val_curve_params(cart_final, X, y, "max_depth", range(1, 11), scoring="f1")
 
+# Birden fazla hiperparametre olduğunda (yukarıdaki tekti) ne yapacağım??
+# Array'e atarız parametreleri ve döngü ile yukarıdaki fonksiyonu işletiriz.
 cart_val_params = [["max_depth", range(1, 11)], ["min_samples_split", range(2, 20)]]
 
 for i in range(len(cart_val_params)):
     val_curve_params(cart_model, X, y, cart_val_params[i][0], cart_val_params[i][1])
-
-
 
 ################################################
 # 8. Visualizing the Decision Tree
@@ -250,31 +260,27 @@ def tree_graph(model, col_names, file_name):
 
 
 tree_graph(model=cart_final, col_names=X.columns, file_name="cart_final.png")
-
+# ağaç modelin görsel çıktısıdır.
 cart_final.get_params()
-
 
 ################################################
 # 9. Extracting Decision Rules
 ################################################
-
+# Karar kurallarını consol'da gözlemleyecek kullanımdır.
 tree_rules = export_text(cart_final, feature_names=list(X.columns))
 print(tree_rules)
 
-
 ################################################
-# 10. Extracting Python Codes of Decision Rules
+# 10. Extracting Python,SQL,EXCEL Codes of Decision Rules
 ################################################
 
 # sklearn '0.23.1' versiyonu ile yapılabilir.
 # pip install scikit-learn==0.23.1
-
+# sklearn.__version__ => sckitlearn versiyon bakma işi
+# Bu alttakiler görsel teknikle elde ettiğimiz karar ağaçlarının fonkisyonlaştırılmış karar kurallarıdır.
 print(skompile(cart_final.predict).to('python/code'))
-
-print(skompile(cart_final.predict).to('sqlalchemy/sqlite'))
-
+print(skompile(cart_final.predict).to('sqlalchemy/sqlite')) # canlıda kullanmanın en temiz yolu bunu script olarak canlıya atmak.
 print(skompile(cart_final.predict).to('excel'))
-
 
 ################################################
 # 11. Prediction using Python Codes
@@ -338,21 +344,18 @@ def predict_with_rules(x):
 X.columns
 
 x = [12, 13, 20, 23, 4, 55, 12, 7]
-
 predict_with_rules(x)
 
 x = [6, 148, 70, 35, 0, 30, 0.62, 50]
-
 predict_with_rules(x)
-
-
 
 ################################################
 # 12. Saving and Loading Model
 ################################################
-
+# model save etme => sonrasında ister taşı, ister server'a at, ister cloud'a atıp kullan
 joblib.dump(cart_final, "cart_final.pkl")
 
+#modeli folderdan load etme
 cart_model_from_disc = joblib.load("cart_final.pkl")
 
 x = [12, 13, 20, 23, 4, 55, 12, 7]

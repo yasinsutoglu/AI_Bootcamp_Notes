@@ -21,9 +21,10 @@ from catboost import CatBoostClassifier
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', 500)
 
+#warningleri kapatma
 warnings.simplefilter(action='ignore', category=Warning)
 
-df = pd.read_csv("datasets/diabetes.csv")
+df = pd.read_csv("section_datasets/machine_learning/diabetes.csv")
 
 y = df["Outcome"]
 X = df.drop(["Outcome"], axis=1)
@@ -34,13 +35,17 @@ X = df.drop(["Outcome"], axis=1)
 
 rf_model = RandomForestClassifier(random_state=17)
 rf_model.get_params()
+# 'n_estimators': 100 => fit edilecek bağımsız ağaç sayısı
+# 'max_features' => bölünmelerde göz önünde bulundurulması gereken değişken sayısı
+# 'min_samples_split' => dallanmaya maruz kalıp/kalmamayı beleirleyen min gözlem birimi sayısı
 
+# hiperparametre optimizasyonu yapmadan bir gözleyelim
 cv_results = cross_validate(rf_model, X, y, cv=10, scoring=["accuracy", "f1", "roc_auc"])
 cv_results['test_accuracy'].mean()
 cv_results['test_f1'].mean()
 cv_results['test_roc_auc'].mean()
 
-
+# hiperparametre optimizsayonu için olusturduk, Rando
 rf_params = {"max_depth": [5, 8, None],
              "max_features": [3, 5, 7, "auto"],
              "min_samples_split": [2, 5, 8, 15, 20],
@@ -114,7 +119,7 @@ cv_results['test_roc_auc'].mean()
 
 gbm_params = {"learning_rate": [0.01, 0.1],
               "max_depth": [3, 8, 10],
-              "n_estimators": [100, 500, 1000],
+              "n_estimators": [100, 500, 1000], # optimizasyon sayısıdır(kaç defa boost ettik)
               "subsample": [1, 0.5, 0.7]}
 
 gbm_best_grid = GridSearchCV(gbm_model, gbm_params, cv=5, n_jobs=-1, verbose=True).fit(X, y)
@@ -129,7 +134,6 @@ cv_results['test_accuracy'].mean()
 cv_results['test_f1'].mean()
 cv_results['test_roc_auc'].mean()
 
-
 ################################################
 # XGBoost
 ################################################
@@ -138,27 +142,26 @@ xgboost_model = XGBClassifier(random_state=17, use_label_encoder=False)
 xgboost_model.get_params()
 cv_results = cross_validate(xgboost_model, X, y, cv=5, scoring=["accuracy", "f1", "roc_auc"])
 cv_results['test_accuracy'].mean()
-# 0.75265
+# 0.7409557762498938
 cv_results['test_f1'].mean()
-# 0.631
+#  0.6180796532975465
 cv_results['test_roc_auc'].mean()
-# 0.7987
+# 0.7934919636617749
 
 xgboost_params = {"learning_rate": [0.1, 0.01],
                   "max_depth": [5, 8],
                   "n_estimators": [100, 500, 1000],
-                  "colsample_bytree": [0.7, 1]}
+                  "colsample_bytree": [0.7, 1]} #subsample ile aynı şey => family of parameters for subsampling of columns
 
+#hiperparametre optimizsayonu yapılan yer
 xgboost_best_grid = GridSearchCV(xgboost_model, xgboost_params, cv=5, n_jobs=-1, verbose=True).fit(X, y)
 
 xgboost_final = xgboost_model.set_params(**xgboost_best_grid.best_params_, random_state=17).fit(X, y)
 
 cv_results = cross_validate(xgboost_final, X, y, cv=5, scoring=["accuracy", "f1", "roc_auc"])
-cv_results['test_accuracy'].mean()
-cv_results['test_f1'].mean()
-cv_results['test_roc_auc'].mean()
-
-
+cv_results['test_accuracy'].mean() # 0.7630846277905101
+cv_results['test_f1'].mean() # 0.6328122330962486
+cv_results['test_roc_auc'].mean() # 0.8168742138364781
 
 ################################################
 # LightGBM
@@ -169,27 +172,28 @@ lgbm_model.get_params()
 
 cv_results = cross_validate(lgbm_model, X, y, cv=5, scoring=["accuracy", "f1", "roc_auc"])
 
-cv_results['test_accuracy'].mean()
-cv_results['test_f1'].mean()
-cv_results['test_roc_auc'].mean()
+cv_results['test_accuracy'].mean() #0.74
+cv_results['test_f1'].mean() #0.62
+cv_results['test_roc_auc'].mean() #0.79
 
 lgbm_params = {"learning_rate": [0.01, 0.1],
                "n_estimators": [100, 300, 500, 1000],
                "colsample_bytree": [0.5, 0.7, 1]}
 
+#hiperparametre optimizasyonu
 lgbm_best_grid = GridSearchCV(lgbm_model, lgbm_params, cv=5, n_jobs=-1, verbose=True).fit(X, y)
 
 lgbm_final = lgbm_model.set_params(**lgbm_best_grid.best_params_, random_state=17).fit(X, y)
 
 cv_results = cross_validate(lgbm_final, X, y, cv=5, scoring=["accuracy", "f1", "roc_auc"])
 
-cv_results['test_accuracy'].mean()
-cv_results['test_f1'].mean()
-cv_results['test_roc_auc'].mean()
+cv_results['test_accuracy'].mean() # 0.7643578643578645
+cv_results['test_f1'].mean() #0.6372062920577772
+cv_results['test_roc_auc'].mean() #  0.8147491264849755
 
 # Hiperparametre yeni değerlerle
 lgbm_params = {"learning_rate": [0.01, 0.02, 0.05, 0.1],
-               "n_estimators": [200, 300, 350, 400],
+               "n_estimators": [200, 300, 350, 400], # iterasyon sayısı olarak düşünülür
                "colsample_bytree": [0.9, 0.8, 1]}
 
 lgbm_best_grid = GridSearchCV(lgbm_model, lgbm_params, cv=5, n_jobs=-1, verbose=True).fit(X, y)
@@ -198,10 +202,11 @@ lgbm_final = lgbm_model.set_params(**lgbm_best_grid.best_params_, random_state=1
 
 cv_results = cross_validate(lgbm_final, X, y, cv=5, scoring=["accuracy", "f1", "roc_auc"])
 
-cv_results['test_accuracy'].mean()
-cv_results['test_f1'].mean()
-cv_results['test_roc_auc'].mean()
+cv_results['test_accuracy'].mean() # 0.76
+cv_results['test_f1'].mean() # 0.61
+cv_results['test_roc_auc'].mean() # 0.82
 
+# LightGBM'de temel olarak diğer hiperparametreleri belierledikten sonra n_estimators'ı 10000'e kadar arttırmak lazım.
 
 # Hiperparametre optimizasyonu sadece n_estimators için.
 lgbm_model = LGBMClassifier(random_state=17, colsample_bytree=0.9, learning_rate=0.01)
@@ -214,10 +219,9 @@ lgbm_final = lgbm_model.set_params(**lgbm_best_grid.best_params_, random_state=1
 
 cv_results = cross_validate(lgbm_final, X, y, cv=5, scoring=["accuracy", "f1", "roc_auc"])
 
-cv_results['test_accuracy'].mean()
-cv_results['test_f1'].mean()
-cv_results['test_roc_auc'].mean()
-
+cv_results['test_accuracy'].mean() # 0.76
+cv_results['test_f1'].mean() # 0.61
+cv_results['test_roc_auc'].mean() # 0.82
 
 ################################################
 # CatBoost
@@ -227,15 +231,13 @@ catboost_model = CatBoostClassifier(random_state=17, verbose=False)
 
 cv_results = cross_validate(catboost_model, X, y, cv=5, scoring=["accuracy", "f1", "roc_auc"])
 
-cv_results['test_accuracy'].mean()
-cv_results['test_f1'].mean()
-cv_results['test_roc_auc'].mean()
+cv_results['test_accuracy'].mean() # 0.77
+cv_results['test_f1'].mean() # 0.65
+cv_results['test_roc_auc'].mean() # 0.86
 
-
-catboost_params = {"iterations": [200, 500],
+catboost_params = {"iterations": [200, 500], # ağaç sayısı, boosting sayısı, n_estimators
                    "learning_rate": [0.01, 0.1],
-                   "depth": [3, 6]}
-
+                   "depth": [3, 6]} # max_depth
 
 catboost_best_grid = GridSearchCV(catboost_model, catboost_params, cv=5, n_jobs=-1, verbose=True).fit(X, y)
 
@@ -243,10 +245,10 @@ catboost_final = catboost_model.set_params(**catboost_best_grid.best_params_, ra
 
 cv_results = cross_validate(catboost_final, X, y, cv=5, scoring=["accuracy", "f1", "roc_auc"])
 
-cv_results['test_accuracy'].mean()
-cv_results['test_f1'].mean()
-cv_results['test_roc_auc'].mean()
-
+cv_results['test_accuracy'].mean() # 0.77
+cv_results['test_f1'].mean() # 0.63
+cv_results['test_roc_auc'].mean() # 0.84
+# Diğer yöntemlere göre daha iyi sonuclar verdi.
 
 ################################################
 # Feature Importance
@@ -270,7 +272,6 @@ plot_importance(xgboost_final, X)
 plot_importance(lgbm_final, X)
 plot_importance(catboost_final, X)
 
-
 ################################
 # Hyperparameter Optimization with RandomSearchCV (BONUS)
 ################################
@@ -291,19 +292,14 @@ rf_random = RandomizedSearchCV(estimator=rf_model,
                                n_jobs=-1)
 
 rf_random.fit(X, y)
-
-
 rf_random.best_params_
-
 
 rf_random_final = rf_model.set_params(**rf_random.best_params_, random_state=17).fit(X, y)
 
 cv_results = cross_validate(rf_random_final, X, y, cv=5, scoring=["accuracy", "f1", "roc_auc"])
-
 cv_results['test_accuracy'].mean()
 cv_results['test_f1'].mean()
 cv_results['test_roc_auc'].mean()
-
 
 ################################
 # Analyzing Model Complexity with Learning Curves (BONUS)
