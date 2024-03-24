@@ -13,7 +13,7 @@ new_model = joblib.load("voting_clf.pkl")
 
 new_model.predict(random_user)
 
-from diabetes_pipeline import diabetes_data_prep
+from AI_Bootcamp_Sections.machine_learning.pipelineWork.diabetes_pipeline_2 import diabetes_data_prep
 
 X, y = diabetes_data_prep(df)
 
